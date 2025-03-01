@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Booth</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #ff9966, #ff5e62);
+            color: white;
+        }
+        h1 {
+            margin-top: 20px;
+        }
+        #timer {
+            font-size: 48px;
+            margin-top: 20px;
+            display: none;
+        }
+        video {
+            display: block;
+            margin: 20px auto;
+            border: 5px solid white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+        button, select {
+            background-color: white;
+            color: #ff5e62;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin: 10px;
+        }
+        button:hover, select:hover {
+            background-color: #ffcccb;
+        }
+        .photos {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .strip {
+            display: flex;
+            gap: 5px;
+            border: 5px solid white;
+            padding: 10px;
+            background: black;
+        }
+        .strip.vertical {
+            flex-direction: column;
+        }
+        .strip.horizontal {
+            flex-direction: row;
+        }
+        .strip img {
+            width: 200px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .gradient-border img {
+            border: 3px solid;
+            border-image: linear-gradient(45deg, #ff9966, #ff5e62) 1;
+        }
+        .shadowed-border img {
+            border: 3px solid white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.19);
+        }
+        .double-gradient-border img {
+            border: double 10px transparent;
+            background-image: linear-gradient(white, white), linear-gradient(45deg, #ff9966, #ff5e62);
+            background-origin: border-box;
+            background-clip: content-box, border-box;
+        }
+        .outset-border img {
+            border: 3px outset white;
+        }
+        .golden-border img {
+            border: 3px solid gold;
+        }
+    </style>
+</head>
+<body>
+    <h1>JAZZ AERON PHOTOBOOTH</h1>
+    <div id="timer">3</div>
+    <video id="video" width="320" height="240" autoplay></video>
+    <button id="capture">Take Photo</button>
+    <button id="save" disabled>Save Picture</button>
+    <select id="stripStyle">
+        <option value="vertical">Vertical Strip</option>
+        <option value="horizontal">Horizontal Strip</option>
+    </select>
+    <select id="borderStyle">
+        <option value="gradient-border">Gradient Border</option>
+        <option value="shadowed-border">Shadowed Border</option>
+        <option value="double-gradient-border">Double Gradient Border</option>
+        <option value="outset-border">Elegant Outset Border</option>
+        <option value="golden-border">Golden Border</option>
+    </select>
+    <div class="photos">
+        <div class="strip vertical" id="strip"></div>
+    </div>
+    <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+    
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const captureButton = document.getElementById('capture');
+        const saveButton = document.getElementById('save');
+        const stripContainer = document.getElementById('strip');
+        const stripStyle = document.getElementById('stripStyle');
+        const borderStyle = document.getElementById('borderStyle');
+        const timer = document.getElementById('timer');
+        let photoCount = 0;
+        let images = [];
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Error accessing webcam: ", err);
+            });
+
+        function capturePhoto() {
+            let countdown = 3;
+            timer.style.display = 'block';
+            timer.textContent = countdown;
+
+            const intervalId = setInterval(() => {
+                countdown--;
+                timer.textContent = countdown;
+                if (countdown === 0) {
+                    clearInterval(intervalId);
+                    timer.style.display = 'none';
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = canvas.toDataURL('image/png');
+                    const img = document.createElement('img');
+                    img.src = imageData;
+                    stripContainer.appendChild(img);
+                    images.push(imageData);
+                    photoCount++;
+                    if (photoCount === 3) saveButton.removeAttribute('disabled');
+                }
+            }, 1000);
+        }
+
+        stripStyle.addEventListener('change', () => {
+            stripContainer.className = `strip ${stripStyle.value}`;
+        });
+
+        borderStyle.addEventListener('change', () => {
+            stripContainer.classList.forEach(cls => {
+                if (cls.includes('border')) {
+                    stripContainer.classList.remove(cls);
+                }
+            });
+            stripContainer.classList.add(borderStyle.value);
+        });
+
+        captureButton.addEventListener('click', capturePhoto);
+
+        saveButton.addEventListener('click', () => {
+            const stripCanvas = document.createElement('canvas');
+            const ctx = stripCanvas.getContext('2d');
+            
+            const borderWidth = 3; // adjust this value to match the border width in CSS
+            const borderRadius = 10; // adjust this value to match the border radius in CSS
+
+            if (stripContainer.classList.contains('vertical')) {
+                stripCanvas.width = canvas.width + 2 * borderWidth;
+                stripCanvas.height = (canvas.height + 2 * borderWidth) * images.length;
+            } else {
+                stripCanvas.width = (canvas.width + 2 * borderWidth) * images.length;
+                stripCanvas.height = canvas.height + 2 * borderWidth;
+            }
+
+            images.forEach((imgSrc, index) => {
+                const img = new Image();
+                img.src = imgSrc;
+                img.onload = () => {
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(
+                        stripContainer.classList.contains('vertical') ? 0 : (canvas.width + 2 * borderWidth) * index,
+                        stripContainer.classList.contains('vertical') ? (canvas.height + 2 * borderWidth) * index : 0,
+                        canvas.width + 2 * borderWidth,
+                        canvas.height + 2 * borderWidth
+                    );
+
+                    ctx.drawImage(
+                        img,
+                        stripContainer.classList.contains('vertical') ? borderWidth : (canvas.width + 2 * borderWidth) * index + borderWidth,
+                        stripContainer.classList.contains('vertical') ? (canvas.height + 2 * borderWidth) * index + borderWidth : borderWidth,
+                        canvas.width,
+                        canvas.height
+                    );
+
+                    // Apply the selected border style
+                    ctx.strokeStyle = "white"; // <-- This should dynamically change
+ctx.lineWidth = borderWidth;
+
+// Check which border style is selected
+if (stripContainer.classList.contains('gradient-border')) {
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, "#ff9966");
+    gradient.addColorStop(1, "#ff5e62");
+    ctx.strokeStyle = gradient;
+} else if (stripContainer.classList.contains('shadowed-border')) {
+    ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = 4;
+} else if (stripContainer.classList.contains('golden-border')) {
+    ctx.strokeStyle = "gold";
+} else if (stripContainer.classList.contains('outset-border')) {
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 6; // Outset effect
+} else if (stripContainer.classList.contains('double-gradient-border')) {
+    ctx.strokeStyle = "transparent";
+    ctx.lineWidth = 10;
+    ctx.fillStyle = "white";
+}
+
+// Draw the border
+ctx.strokeRect(
+    stripContainer.classList.contains('vertical') ? borderWidth : (canvas.width + 2 * borderWidth) * index + borderWidth,
+    stripContainer.classList.contains('vertical') ? (canvas.height + 2 * borderWidth) * index + borderWidth : borderWidth,
+    canvas.width,
+    canvas.height
+);
+
+                    if (index === images.length - 1) {
+                        const link = document.createElement('a');
+                        link.href = stripCanvas.toDataURL('image/png');
+                        link.download = 'photo-strip.png';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }
+                };
+            });
+        });
+    </script>
+</body>
+</html>
